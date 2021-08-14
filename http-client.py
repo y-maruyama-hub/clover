@@ -1,5 +1,6 @@
 import os
 import sys
+import cv2
 import json
 import urllib.parse
 import urllib.request
@@ -9,9 +10,13 @@ import base64
 import traceback
 from dotenv import load_dotenv
 
+from mitsuba.mycam import MyCamera
+
 #url = "http://localhost:5000/predict"
 #f = open("sample/20210314120359_1.jpg", "rb")
 
+
+opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
 
 def request(url,reqbody) :
 
@@ -24,7 +29,11 @@ def request(url,reqbody) :
 
 #with urllib.request.urlopen(req) as res:
 #    print(json.loads(res.read()))
-    response = urllib.request.urlopen(req)
+    #response = urllib.request.urlopen(req)
+    response = opener.open(req)
+
+    #headers = response.info()
+    #print(headers)
 
     res = response.read()
 
@@ -35,9 +44,10 @@ def request(url,reqbody) :
 
 load_dotenv()
 
+
+
 bgurl = os.getenv("BGURL")
 url = os.getenv("URL")
-
 
 bgtime = 0
 bgtimeout = int(os.getenv("BGTIMEOUT"))
@@ -46,28 +56,39 @@ sleeptime = int(os.getenv("SLEEPTIME"))
 el = 0
 
 try :
+
+    cam=MyCamera(os.getenv("CAMERA_SRV"))
+
     while True :
 
-        f = open("sample/sample2.jpg", "rb")
-        reqbody = f.read()
-        f.close()
+        frame=cam.getframe()
+
+        if frame is None : raise Exception
+
+        _,jpeg= cv2.imencode(".jpg", frame)
+
+        reqbody=jpeg.tobytes()
+
+        #f = open("sample/sample2.jpg", "rb")
+        #reqbody = f.read()
+        #f.close()
 
         t = time.time()
 
         if bgtime==0 or (t-bgtime > bgtimeout) :
+
             res = request(bgurl,reqbody)
+
             j=json.loads(res)
 
             bgtime= time.time()
-
-            print("bg\n")
 
         else :
             res = request(url,reqbody)
 
             j=json.loads(res)
 
-            if j["res"]>=0 :
+            if j["res"]>0 :
 
                 img = base64.b64decode(j["img"])
 
