@@ -1,6 +1,7 @@
 import os
 import sys
 import cv2
+import numpy as np
 import json
 import urllib.parse
 import urllib.request
@@ -57,6 +58,44 @@ el = 0
 
 try :
 
+    f = open("sample/sample2.jpg", "rb")
+    jpeg = f.read()
+    f.close()
+
+    img_buf= np.frombuffer(jpeg, dtype=np.uint8)
+
+    frame = cv2.imdecode(img_buf, flags=cv2.IMREAD_COLOR)
+
+    print(type(frame))
+
+    _,jpeg = cv2.imencode('.jpg', frame)
+
+    imgstr = base64.b64encode(jpeg.tostring()).decode("utf-8")
+
+    reqbody = {}
+
+    reqbody["img"]=imgstr
+    reqbody["bg"]=True
+
+#    print(reqbody)
+
+    res = request(url,json.dumps(reqbody).encode("utf-8"))
+
+    print(res)
+
+except KeyboardInterrupt as e :
+    print("exit")
+except :
+    el=1
+    traceback.print_exc()
+
+finally:
+    sys.exit(el)
+
+
+'''
+try :
+
     cam=MyCamera(os.getenv("CAMERA_SRV"))
 
     while True :
@@ -67,7 +106,7 @@ try :
 
         _,jpeg= cv2.imencode(".jpg", frame)
 
-        ###reqbody=jpeg.tobytes()
+        reqbody=jpeg.tobytes()
 
         #f = open("sample/sample2.jpg", "rb")
         #reqbody = f.read()
@@ -75,36 +114,34 @@ try :
 
         t = time.time()
 
-        reqbody = {}
-        reqbody["bg"]=False
-
         if bgtime==0 or (t-bgtime > bgtimeout) :
-            reqbody["bg"]=True
+
+            res = request(bgurl,reqbody)
+
+            j=json.loads(res)
+
             bgtime= time.time()
 
-        imgstr = base64.b64encode(jpeg.tostring()).decode("utf-8")
+        else :
+            res = request(url,reqbody)
 
-        reqbody["img"]=imgstr
+            j=json.loads(res)
 
-        res = request(url,json.dumps(reqbody).encode("utf-8"))
+            if j["res"]>0 :
 
-        j=json.loads(res)
+                img = base64.b64decode(j["img"])
 
-        if j["res"]>0 :
+                tm = datetime.datetime.fromtimestamp(t)
 
-            img = base64.b64decode(j["img"])
+                try:
+                    f = open("{0}/{1}.jpg".format("save",tm.strftime("%Y%m%d%H%M%S")), "wb")
+                    f.write(img)
 
-            tm = datetime.datetime.fromtimestamp(t)
+                except :
+                    raise Exception
 
-            try:
-                f = open("{0}/{1}.jpg".format("save",tm.strftime("%Y%m%d%H%M%S")), "wb")
-                f.write(img)
-
-            except :
-                raise Exception
-
-            finally :
-                f.close()
+                finally :
+                    f.close()
 
         time.sleep(sleeptime)
 
@@ -116,3 +153,4 @@ except :
 
 finally:
     sys.exit(el)
+'''
