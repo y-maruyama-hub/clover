@@ -46,12 +46,15 @@ load_dotenv()
 
 
 
-bgurl = os.getenv("BGURL")
+weburl = os.getenv("WEBURL")
 url = os.getenv("URL")
 
 bgtime = 0
 bgtimeout = int(os.getenv("BGTIMEOUT"))
 sleeptime = int(os.getenv("SLEEPTIME"))
+
+sendwebtimeout = 60*5
+sendwebtime = 0
 
 el = 0
 
@@ -105,6 +108,23 @@ try :
 
             finally :
                 f.close()
+
+
+
+        if sendwebtimeout>0 and (t-sendwebtime > sendwebtimeout) :
+            
+            sendwebtime = t
+            tm = datetime.datetime.fromtimestamp(t)
+            reqbody = {}
+            reqbody["time"]=tm.strftime("%Y%m%d%H%M%S")
+            reqbody["img"]=imgstr
+            res = request(weburl,json.dumps(reqbody).encode("utf-8"))
+            j = json.loads(res)
+
+            if j["rcode"]=="000" :
+                print(j["tm"])
+            else :
+                print(j["rcode"])
 
         time.sleep(sleeptime)
 
