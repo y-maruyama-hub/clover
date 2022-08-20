@@ -53,7 +53,9 @@ bgtime = 0
 bgtimeout = int(os.getenv("BGTIMEOUT"))
 sleeptime = int(os.getenv("SLEEPTIME"))
 
-sendwebtimeout = 60*5
+savepath = os.getenv("SAVEPATH")
+
+sendwebtimeout = int(os.getenv("SENDWEBTIMEOUT"))
 sendwebtime = 0
 
 el = 0
@@ -85,7 +87,7 @@ try :
             reqbody["bg"]=True
             bgtime= time.time()
 
-        imgstr = base64.b64encode(jpeg.tostring()).decode("utf-8")
+        imgstr = base64.b64encode(jpeg.tobytes()).decode("utf-8")
 
         reqbody["img"]=imgstr
 
@@ -100,7 +102,7 @@ try :
             tm = datetime.datetime.fromtimestamp(t)
 
             try:
-                f = open("{0}/{1}.jpg".format("save",tm.strftime("%Y%m%d%H%M%S")), "wb")
+                f = open("{0}/{1}.jpg".format(savepath,tm.strftime("%Y%m%d%H%M%S")), "wb")
                 f.write(img)
 
             except :
