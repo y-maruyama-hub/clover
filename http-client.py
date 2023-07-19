@@ -16,7 +16,17 @@ from mitsuba.mycam import MyCamera
 #f = open("sample/20210314120359_1.jpg", "rb")
 
 
+load_dotenv()
+
+webm2mid = os.getenv("M2M_CLIENT_ID")
+webm2msecret = os.getenv("M2M_CLIENT_SECRET")
+webauthurl = os.getenv("WEB_AUTH_URL")
+webimgposturl = os.getenv("WEB_POSTIMG_URL")
+url = os.getenv("URL")
+
+
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+
 
 def request(url,reqbody) :
 
@@ -27,27 +37,80 @@ def request(url,reqbody) :
         headers={"Content-Type": "application/json"},
     )
 
-#with urllib.request.urlopen(req) as res:
-#    print(json.loads(res.read()))
-    #response = urllib.request.urlopen(req)
     response = opener.open(req)
-
-    #headers = response.info()
-    #print(headers)
-
     res = response.read()
-
     response.close()
 
     return res
 
 
-load_dotenv()
+
+def getAccessToken() :
+
+    reqbody = {}
+    reqbody["clientid"] = webm2mid
+    reqbody["clientsecret"] = webm2msecret
+
+    req = urllib.request.Request(
+        webauthurl,
+        json.dumps(reqbody).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+
+    response = opener.open(req)
+
+    if response.code!=200 : return None,None
+
+    res = response.read()
+
+    response.close()
+
+    j=json.loads(res)
+
+    if j["rcode"] != "000" : return None,None
+
+    t = time.time() + j["lifetime"]
+
+    return j["access_token"],t
 
 
 
-weburl = os.getenv("WEBURL")
-url = os.getenv("URL")
+def sendImage(accesstoken,imgstr) :
+
+    reqbody = {}
+    reqbody["time"] = ""
+    reqbody["img"] = imgstr
+
+    req = urllib.request.Request(
+        webimgposturl,
+        json.dumps(reqbody).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type" : "application/json",
+                 "Authorization" : "Bearer {0}".format(accesstoken)
+        },
+    )
+
+    response = opener.open(req)
+
+    if response.code!=200 : return None
+
+    res = response.read()
+
+    response.close()
+
+    j = json.loads(res)
+
+    if j["rcode"] != "000" : return None
+ 
+    return j["rcode"]
+ 
+
+
+
+accesstoken = None
+tokenlifetime = None
+
 
 bgtime = 0
 bgtimeout = int(os.getenv("BGTIMEOUT"))
@@ -114,19 +177,21 @@ try :
 
 
         if sendwebtimeout>0 and (t-sendwebtime > sendwebtimeout) :
-            
-            sendwebtime = t
-            tm = datetime.datetime.fromtimestamp(t)
-            reqbody = {}
-            reqbody["time"]=tm.strftime("%Y%m%d%H%M%S")
-            reqbody["img"]=imgstr
-            res = request(weburl,json.dumps(reqbody).encode("utf-8"))
-            j = json.loads(res)
 
-            if j["rcode"]=="000" :
-                print(j["tm"])
-            else :
-                print(j["rcode"])
+            sendwebtime = t
+
+            # if acccesstoken is expired
+            if (tokenlifetime is None) or (tokenlifetime < t) :
+                
+                print("get access_token")
+                at,limittm = getAccessToken()
+
+                if limittm is None : raise Exception
+
+                accesstoken = at
+                tokenlifetime = limittm
+
+            if sendImage(accesstoken,imgstr) is None : raise Exception
 
         time.sleep(sleeptime)
 
